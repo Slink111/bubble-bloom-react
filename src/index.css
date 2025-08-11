@@ -6,21 +6,29 @@
 
 @layer base {
   :root {
-    /* Game Color Palette - Vibrant Bubble Colors */
+    /* Enhanced Game Color Palette */
     --game-purple: 269 91% 67%;
+    --game-purple-dark: 269 91% 47%;
     --game-cyan: 186 100% 69%;
+    --game-cyan-dark: 186 100% 49%;
     --game-magenta: 330 81% 60%;
-    --game-lime: 84 81% 44%;
-    --game-dark-purple: 277 66% 32%;
+    --game-magenta-dark: 330 81% 40%;
+    --game-lime: 84 81% 54%;
+    --game-lime-dark: 84 81% 34%;
+    --game-orange: 35 85% 60%;
+    --game-orange-dark: 35 85% 40%;
+    --game-dark-purple: 277 66% 20%;
+    --game-ultra-dark: 277 66% 8%;
     
-    /* Game Gradients */
-    --gradient-game-bg: linear-gradient(135deg, hsl(var(--game-purple)), hsl(var(--game-dark-purple)));
-    --gradient-bubble-glow: radial-gradient(circle, hsla(var(--game-cyan), 0.3) 0%, transparent 70%);
-    
-    /* Game UI */
-    --game-board-bg: hsla(277, 66%, 20%, 0.9);
+    /* Game UI Colors */
+    --game-board-bg: hsla(277, 66%, 15%, 0.95);
     --game-text: 0 0% 100%;
-    --game-shadow: 0 10px 30px hsla(277, 66%, 10%, 0.5);
+    --game-text-muted: 0 0% 70%;
+    --game-accent: 186 100% 69%;
+    
+    /* Laser Colors */
+    --laser-color: 0 100% 60%;
+    --laser-glow: 0 100% 70%;
     
     /* Design System */
     --background: 277 66% 8%;
