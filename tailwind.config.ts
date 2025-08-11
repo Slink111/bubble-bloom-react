@@ -90,11 +90,33 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'bubble-pop': {
+					'0%': { transform: 'scale(1)', opacity: '1' },
+					'50%': { transform: 'scale(1.2)', opacity: '0.8' },
+					'100%': { transform: 'scale(0)', opacity: '0' }
+				},
+				'bubble-bounce': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-5px)' }
+				},
+				'laser-pulse': {
+					'0%, 100%': { opacity: '0.3' },
+					'50%': { opacity: '0.8' }
+				},
+				'score-pop': {
+					'0%': { transform: 'scale(1)', opacity: '1' },
+					'50%': { transform: 'scale(1.3)', opacity: '0.8' },
+					'100%': { transform: 'scale(1)', opacity: '1' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'bubble-pop': 'bubble-pop 0.3s ease-out',
+				'bubble-bounce': 'bubble-bounce 2s ease-in-out infinite',
+				'laser-pulse': 'laser-pulse 1.5s ease-in-out infinite',
+				'score-pop': 'score-pop 0.3s ease-out'
 			}
 		}
 	},

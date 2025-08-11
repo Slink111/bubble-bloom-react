@@ -9,6 +9,8 @@ interface Bubble {
   y: number;
   color: BubbleColor;
   radius: number;
+  row: number;
+  col: number;
 }
 
 interface Projectile {
@@ -20,10 +22,17 @@ interface Projectile {
   radius: number;
 }
 
-const BUBBLE_RADIUS = 20;
+interface PopAnimation {
+  x: number;
+  y: number;
+  frame: number;
+}
+
+const BUBBLE_RADIUS = 18;
 const COLORS: BubbleColor[] = ['purple', 'cyan', 'magenta', 'lime'];
-const ROWS = 8;
-const COLS = 10;
+const ROWS = 10;
+const COLS = 12;
+const BUBBLE_SPACING = BUBBLE_RADIUS * 2;
 
 const BubbleShooter = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,65 +41,96 @@ const BubbleShooter = () => {
   const [nextColor, setNextColor] = useState<BubbleColor>('purple');
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
-  const [angle, setAngle] = useState(0);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [popAnimations, setPopAnimations] = useState<PopAnimation[]>([]);
+  const [scoreAnimation, setScoreAnimation] = useState(false);
   const animationRef = useRef<number>();
 
-  const getColorClass = (color: BubbleColor) => {
-    const colorMap = {
-      purple: 'bg-game-purple',
-      cyan: 'bg-game-cyan', 
-      magenta: 'bg-game-magenta',
-      lime: 'bg-game-lime'
+  const getColorHex = (color: BubbleColor) => {
+    switch (color) {
+      case 'purple': return { main: 'hsl(269, 91%, 67%)', light: 'hsl(269, 91%, 77%)' };
+      case 'cyan': return { main: 'hsl(186, 100%, 69%)', light: 'hsl(186, 100%, 79%)' };
+      case 'magenta': return { main: 'hsl(330, 81%, 60%)', light: 'hsl(330, 81%, 70%)' };
+      case 'lime': return { main: 'hsl(84, 81%, 44%)', light: 'hsl(84, 81%, 54%)' };
+    }
+  };
+
+  const getGridPosition = (row: number, col: number) => {
+    const offsetX = row % 2 === 1 ? BUBBLE_SPACING / 2 : 0;
+    return {
+      x: 40 + offsetX + col * BUBBLE_SPACING,
+      y: 60 + row * (BUBBLE_SPACING * 0.87) // Hexagonal spacing
     };
-    return colorMap[color];
   };
 
   const initializeBubbles = useCallback(() => {
     const newBubbles: Bubble[] = [];
-    for (let row = 0; row < 5; row++) {
-      const bubblesInRow = COLS - (row % 2 === 1 ? 1 : 0);
-      const startX = row % 2 === 1 ? BUBBLE_RADIUS * 2 : BUBBLE_RADIUS;
-      
-      for (let col = 0; col < bubblesInRow; col++) {
+    for (let row = 0; row < 6; row++) {
+      const maxCols = row % 2 === 1 ? COLS - 1 : COLS;
+      for (let col = 0; col < maxCols; col++) {
+        const pos = getGridPosition(row, col);
         newBubbles.push({
           id: `${row}-${col}`,
-          x: startX + col * BUBBLE_RADIUS * 2,
-          y: 50 + row * BUBBLE_RADIUS * 1.7,
+          x: pos.x,
+          y: pos.y,
           color: COLORS[Math.floor(Math.random() * COLORS.length)],
-          radius: BUBBLE_RADIUS
+          radius: BUBBLE_RADIUS,
+          row,
+          col
         });
       }
     }
     setBubbles(newBubbles);
   }, []);
 
-  const findConnectedBubbles = (targetBubble: Bubble, color: BubbleColor, visited = new Set<string>()): Bubble[] => {
-    if (visited.has(targetBubble.id) || targetBubble.color !== color) {
-      return [];
-    }
-    
-    visited.add(targetBubble.id);
-    let connected = [targetBubble];
-    
-    bubbles.forEach(bubble => {
-      if (!visited.has(bubble.id) && bubble.color === color) {
-        const distance = Math.sqrt(
-          Math.pow(bubble.x - targetBubble.x, 2) + Math.pow(bubble.y - targetBubble.y, 2)
-        );
-        if (distance <= BUBBLE_RADIUS * 2.2) {
-          connected = connected.concat(findConnectedBubbles(bubble, color, visited));
+  const findNearestGridPosition = (x: number, y: number) => {
+    let minDistance = Infinity;
+    let bestPosition = { row: 0, col: 0, x: 0, y: 0 };
+
+    for (let row = 0; row < ROWS; row++) {
+      const maxCols = row % 2 === 1 ? COLS - 1 : COLS;
+      for (let col = 0; col < maxCols; col++) {
+        const pos = getGridPosition(row, col);
+        const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
+        
+        if (distance < minDistance) {
+          minDistance = distance;
+          bestPosition = { row, col, x: pos.x, y: pos.y };
         }
       }
-    });
-    
+    }
+
+    return bestPosition;
+  };
+
+  const findConnectedBubbles = (targetBubble: Bubble, bubbleList: Bubble[]): Bubble[] => {
+    const visited = new Set<string>();
+    const stack = [targetBubble];
+    const connected: Bubble[] = [];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (visited.has(current.id) || current.color !== targetBubble.color) continue;
+
+      visited.add(current.id);
+      connected.push(current);
+
+      // Find adjacent bubbles
+      const adjacent = bubbleList.filter(bubble => {
+        if (visited.has(bubble.id) || bubble.color !== targetBubble.color) return false;
+        const distance = Math.sqrt((bubble.x - current.x) ** 2 + (bubble.y - current.y) ** 2);
+        return distance <= BUBBLE_SPACING * 1.1;
+      });
+
+      stack.push(...adjacent);
+    }
+
     return connected;
   };
 
   const checkCollision = (proj: Projectile, bubble: Bubble) => {
-    const distance = Math.sqrt(
-      Math.pow(proj.x - bubble.x, 2) + Math.pow(proj.y - bubble.y, 2)
-    );
-    return distance <= proj.radius + bubble.radius;
+    const distance = Math.sqrt((proj.x - bubble.x) ** 2 + (proj.y - bubble.y) ** 2);
+    return distance <= proj.radius + bubble.radius - 5; // Slightly tighter collision
   };
 
   const shootBubble = (targetX: number, targetY: number) => {
@@ -104,13 +144,15 @@ const BubbleShooter = () => {
     const canvasY = targetY - rect.top;
     
     const startX = canvas.width / 2;
-    const startY = canvas.height - 40;
+    const startY = canvas.height - 60;
     
     const dx = canvasX - startX;
     const dy = canvasY - startY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    const speed = 8;
+    if (distance === 0) return;
+    
+    const speed = 10;
     const vx = (dx / distance) * speed;
     const vy = (dy / distance) * speed;
 
@@ -141,48 +183,115 @@ const BubbleShooter = () => {
     // Wall bouncing
     if (newProjectile.x <= BUBBLE_RADIUS || newProjectile.x >= canvas.width - BUBBLE_RADIUS) {
       newProjectile.vx = -newProjectile.vx;
+      newProjectile.x = Math.max(BUBBLE_RADIUS, Math.min(canvas.width - BUBBLE_RADIUS, newProjectile.x));
     }
 
-    // Top boundary
-    if (newProjectile.y <= BUBBLE_RADIUS) {
-      setProjectile(null);
-      return;
-    }
+    // Top boundary - attach to top
+    if (newProjectile.y <= BUBBLE_RADIUS + 20) {
+      const gridPos = findNearestGridPosition(newProjectile.x, 60);
+      const existingBubble = bubbles.find(b => 
+        Math.abs(b.x - gridPos.x) < 5 && Math.abs(b.y - gridPos.y) < 5
+      );
 
-    // Check collision with bubbles
-    for (const bubble of bubbles) {
-      if (checkCollision(newProjectile, bubble)) {
-        // Find position for new bubble
+      if (!existingBubble) {
         const newBubble: Bubble = {
           id: `proj-${Date.now()}`,
-          x: bubble.x,
-          y: bubble.y - BUBBLE_RADIUS * 2,
+          x: gridPos.x,
+          y: gridPos.y,
           color: projectile.color,
-          radius: BUBBLE_RADIUS
+          radius: BUBBLE_RADIUS,
+          row: gridPos.row,
+          col: gridPos.col
         };
 
         const newBubbles = [...bubbles, newBubble];
-        
-        // Check for matches
-        const connectedBubbles = findConnectedBubbles(newBubble, newBubble.color, new Set());
+        const connectedBubbles = findConnectedBubbles(newBubble, newBubbles);
         
         if (connectedBubbles.length >= 3) {
+          // Add pop animations
+          const newAnimations = connectedBubbles.map(bubble => ({
+            x: bubble.x,
+            y: bubble.y,
+            frame: 0
+          }));
+          setPopAnimations(prev => [...prev, ...newAnimations]);
+
           const remainingBubbles = newBubbles.filter(b => 
             !connectedBubbles.some(cb => cb.id === b.id)
           );
           setBubbles(remainingBubbles);
-          setScore(prev => prev + connectedBubbles.length * 10);
+          setScore(prev => {
+            setScoreAnimation(true);
+            setTimeout(() => setScoreAnimation(false), 300);
+            return prev + connectedBubbles.length * 10;
+          });
         } else {
           setBubbles(newBubbles);
         }
+      }
+      
+      setProjectile(null);
+      return;
+    }
+
+    // Check collision with existing bubbles
+    let collided = false;
+    for (const bubble of bubbles) {
+      if (checkCollision(newProjectile, bubble)) {
+        const gridPos = findNearestGridPosition(newProjectile.x, newProjectile.y);
+        const existingBubble = bubbles.find(b => 
+          Math.abs(b.x - gridPos.x) < 5 && Math.abs(b.y - gridPos.y) < 5
+        );
+
+        if (!existingBubble) {
+          const newBubble: Bubble = {
+            id: `proj-${Date.now()}`,
+            x: gridPos.x,
+            y: gridPos.y,
+            color: projectile.color,
+            radius: BUBBLE_RADIUS,
+            row: gridPos.row,
+            col: gridPos.col
+          };
+
+          const newBubbles = [...bubbles, newBubble];
+          const connectedBubbles = findConnectedBubbles(newBubble, newBubbles);
+          
+          if (connectedBubbles.length >= 3) {
+            // Add pop animations
+            const newAnimations = connectedBubbles.map(bubble => ({
+              x: bubble.x,
+              y: bubble.y,
+              frame: 0
+            }));
+            setPopAnimations(prev => [...prev, ...newAnimations]);
+
+            const remainingBubbles = newBubbles.filter(b => 
+              !connectedBubbles.some(cb => cb.id === b.id)
+            );
+            setBubbles(remainingBubbles);
+            setScore(prev => {
+              setScoreAnimation(true);
+              setTimeout(() => setScoreAnimation(false), 300);
+              return prev + connectedBubbles.length * 10;
+            });
+          } else {
+            setBubbles(newBubbles);
+          }
+        }
         
-        setProjectile(null);
-        return;
+        collided = true;
+        break;
       }
     }
 
+    if (collided) {
+      setProjectile(null);
+      return;
+    }
+
     // Bottom boundary - game over
-    if (newProjectile.y >= canvas.height - BUBBLE_RADIUS) {
+    if (newProjectile.y >= canvas.height - BUBBLE_RADIUS - 20) {
       setGameOver(true);
       setProjectile(null);
       return;
@@ -191,129 +300,149 @@ const BubbleShooter = () => {
     setProjectile(newProjectile);
   }, [projectile, bubbles]);
 
+  const updateAnimations = useCallback(() => {
+    setPopAnimations(prev => {
+      const updated = prev.map(anim => ({ ...anim, frame: anim.frame + 1 }));
+      return updated.filter(anim => anim.frame < 15);
+    });
+  }, []);
+
   const drawGame = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Clear canvas with gradient background
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, 'hsl(277, 66%, 32%)');
+    gradient.addColorStop(1, 'hsl(277, 66%, 8%)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw bubbles
+    // Draw laser sight
+    if (!projectile && !gameOver) {
+      const shooterX = canvas.width / 2;
+      const shooterY = canvas.height - 60;
+      
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(shooterX, shooterY);
+      ctx.lineTo(mousePos.x, mousePos.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Draw bubbles with glow effect
     bubbles.forEach(bubble => {
+      const colors = getColorHex(bubble.color);
+      
+      // Glow effect
+      ctx.shadowColor = colors.main;
+      ctx.shadowBlur = 10;
+      
       ctx.beginPath();
       ctx.arc(bubble.x, bubble.y, bubble.radius, 0, Math.PI * 2);
       
       const gradient = ctx.createRadialGradient(
-        bubble.x - 5, bubble.y - 5, 0,
+        bubble.x - 6, bubble.y - 6, 0,
         bubble.x, bubble.y, bubble.radius
       );
-      
-      switch (bubble.color) {
-        case 'purple':
-          gradient.addColorStop(0, 'hsl(269, 91%, 77%)');
-          gradient.addColorStop(1, 'hsl(269, 91%, 57%)');
-          break;
-        case 'cyan':
-          gradient.addColorStop(0, 'hsl(186, 100%, 79%)');
-          gradient.addColorStop(1, 'hsl(186, 100%, 59%)');
-          break;
-        case 'magenta':
-          gradient.addColorStop(0, 'hsl(330, 81%, 70%)');
-          gradient.addColorStop(1, 'hsl(330, 81%, 50%)');
-          break;
-        case 'lime':
-          gradient.addColorStop(0, 'hsl(84, 81%, 54%)');
-          gradient.addColorStop(1, 'hsl(84, 81%, 34%)');
-          break;
-      }
+      gradient.addColorStop(0, colors.light);
+      gradient.addColorStop(1, colors.main);
       
       ctx.fillStyle = gradient;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      
+      // Highlight
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.beginPath();
+      ctx.arc(bubble.x - 5, bubble.y - 5, bubble.radius * 0.4, 0, Math.PI * 2);
+      ctx.fill();
     });
 
     // Draw projectile
     if (projectile) {
+      const colors = getColorHex(projectile.color);
+      
+      ctx.shadowColor = colors.main;
+      ctx.shadowBlur = 15;
+      
       ctx.beginPath();
       ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
       
       const gradient = ctx.createRadialGradient(
-        projectile.x - 5, projectile.y - 5, 0,
+        projectile.x - 6, projectile.y - 6, 0,
         projectile.x, projectile.y, projectile.radius
       );
-      
-      switch (projectile.color) {
-        case 'purple':
-          gradient.addColorStop(0, 'hsl(269, 91%, 77%)');
-          gradient.addColorStop(1, 'hsl(269, 91%, 57%)');
-          break;
-        case 'cyan':
-          gradient.addColorStop(0, 'hsl(186, 100%, 79%)');
-          gradient.addColorStop(1, 'hsl(186, 100%, 59%)');
-          break;
-        case 'magenta':
-          gradient.addColorStop(0, 'hsl(330, 81%, 70%)');
-          gradient.addColorStop(1, 'hsl(330, 81%, 50%)');
-          break;
-        case 'lime':
-          gradient.addColorStop(0, 'hsl(84, 81%, 54%)');
-          gradient.addColorStop(1, 'hsl(84, 81%, 34%)');
-          break;
-      }
+      gradient.addColorStop(0, colors.light);
+      gradient.addColorStop(1, colors.main);
       
       ctx.fillStyle = gradient;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.beginPath();
+      ctx.arc(projectile.x - 5, projectile.y - 5, projectile.radius * 0.4, 0, Math.PI * 2);
+      ctx.fill();
     }
+
+    // Draw pop animations
+    popAnimations.forEach(anim => {
+      const progress = anim.frame / 15;
+      const radius = BUBBLE_RADIUS * (1 + progress * 0.5);
+      const alpha = 1 - progress;
+      
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(anim.x, anim.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    });
 
     // Draw shooter
     const shooterX = canvas.width / 2;
-    const shooterY = canvas.height - 40;
+    const shooterY = canvas.height - 60;
+    const colors = getColorHex(nextColor);
+    
+    ctx.shadowColor = colors.main;
+    ctx.shadowBlur = 15;
     
     ctx.beginPath();
-    ctx.arc(shooterX, shooterY, BUBBLE_RADIUS, 0, Math.PI * 2);
+    ctx.arc(shooterX, shooterY, BUBBLE_RADIUS + 2, 0, Math.PI * 2);
     
     const shooterGradient = ctx.createRadialGradient(
-      shooterX - 5, shooterY - 5, 0,
-      shooterX, shooterY, BUBBLE_RADIUS
+      shooterX - 6, shooterY - 6, 0,
+      shooterX, shooterY, BUBBLE_RADIUS + 2
     );
-    
-    switch (nextColor) {
-      case 'purple':
-        shooterGradient.addColorStop(0, 'hsl(269, 91%, 77%)');
-        shooterGradient.addColorStop(1, 'hsl(269, 91%, 57%)');
-        break;
-      case 'cyan':
-        shooterGradient.addColorStop(0, 'hsl(186, 100%, 79%)');
-        shooterGradient.addColorStop(1, 'hsl(186, 100%, 59%)');
-        break;
-      case 'magenta':
-        shooterGradient.addColorStop(0, 'hsl(330, 81%, 70%)');
-        shooterGradient.addColorStop(1, 'hsl(330, 81%, 50%)');
-        break;
-      case 'lime':
-        shooterGradient.addColorStop(0, 'hsl(84, 81%, 54%)');
-        shooterGradient.addColorStop(1, 'hsl(84, 81%, 34%)');
-        break;
-    }
+    shooterGradient.addColorStop(0, colors.light);
+    shooterGradient.addColorStop(1, colors.main);
     
     ctx.fillStyle = shooterGradient;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.lineWidth = 3;
     ctx.stroke();
-  }, [bubbles, projectile, nextColor]);
+    
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.beginPath();
+    ctx.arc(shooterX - 5, shooterY - 5, (BUBBLE_RADIUS + 2) * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }, [bubbles, projectile, nextColor, mousePos, popAnimations]);
 
   const gameLoop = useCallback(() => {
     updateGame();
+    updateAnimations();
     drawGame();
     animationRef.current = requestAnimationFrame(gameLoop);
-  }, [updateGame, drawGame]);
+  }, [updateGame, updateAnimations, drawGame]);
 
   useEffect(() => {
     initializeBubbles();
@@ -333,48 +462,71 @@ const BubbleShooter = () => {
     setGameOver(false);
     setScore(0);
     setProjectile(null);
+    setPopAnimations([]);
     initializeBubbles();
     setNextColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
   };
 
-  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    shootBubble(event.clientX, event.clientY);
+  const handleCanvasInteraction = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = clientX - rect.left;
+    const canvasY = clientY - rect.top;
+    
+    setMousePos({ x: canvasX, y: canvasY });
+    shootBubble(clientX, clientY);
   };
 
-  const handleCanvasTouch = (event: React.TouchEvent<HTMLCanvasElement>) => {
-    event.preventDefault();
-    const touch = event.touches[0];
-    if (touch) {
-      shootBubble(touch.clientX, touch.clientY);
-    }
+  const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    setMousePos({
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    });
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-game-purple via-game-dark-purple to-background">
-      <div className="bg-game-board-bg rounded-xl p-6 shadow-2xl border border-white/10">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-game-text">Bubble Shooter</h1>
-          <div className="text-game-text font-semibold">Score: {score}</div>
+      <div className="bg-game-board-bg/90 backdrop-blur-sm rounded-2xl p-6 shadow-2xl">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-game-text bg-gradient-to-r from-game-cyan to-game-magenta bg-clip-text text-transparent">
+            Bubble Shooter
+          </h1>
+          <div className={`text-game-text font-bold text-xl ${scoreAnimation ? 'animate-score-pop' : ''}`}>
+            Score: {score}
+          </div>
         </div>
         
         <canvas
           ref={canvasRef}
-          width={400}
-          height={600}
-          className="border border-white/20 rounded-lg bg-gradient-to-b from-game-dark-purple/50 to-background/50 cursor-crosshair touch-none"
-          onClick={handleCanvasClick}
-          onTouchStart={handleCanvasTouch}
+          width={480}
+          height={640}
+          className="rounded-xl bg-gradient-to-b from-game-dark-purple/30 to-background/30 cursor-crosshair touch-none shadow-inner"
+          onClick={(e) => handleCanvasInteraction(e.clientX, e.clientY)}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            if (touch) {
+              handleCanvasInteraction(touch.clientX, touch.clientY);
+            }
+          }}
+          onMouseMove={handleMouseMove}
         />
         
         {gameOver && (
-          <div className="mt-4 text-center">
+          <div className="mt-6 text-center animate-fade-in">
             <div className="text-game-text mb-4">
-              <h2 className="text-xl font-bold">Game Over!</h2>
-              <p>Final Score: {score}</p>
+              <h2 className="text-2xl font-bold mb-2">Game Over!</h2>
+              <p className="text-lg">Final Score: <span className="text-game-cyan font-bold">{score}</span></p>
             </div>
             <Button 
               onClick={resetGame}
-              className="bg-game-magenta hover:bg-game-magenta/80 text-white"
+              className="bg-gradient-to-r from-game-magenta to-game-purple hover:from-game-magenta/80 hover:to-game-purple/80 text-white font-bold px-8 py-3 rounded-xl shadow-lg transform transition hover:scale-105"
             >
               Play Again
             </Button>
@@ -382,7 +534,7 @@ const BubbleShooter = () => {
         )}
         
         <div className="mt-4 text-center text-sm text-game-text/70">
-          {!gameOver && "Tap to shoot bubbles • Match 3+ to pop them"}
+          {!gameOver && "Aim and tap to shoot bubbles • Match 3+ to pop them"}
         </div>
       </div>
     </div>
