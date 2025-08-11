@@ -24,6 +24,12 @@ export default {
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
+				'game-purple': 'hsl(var(--game-purple))',
+				'game-cyan': 'hsl(var(--game-cyan))',
+				'game-magenta': 'hsl(var(--game-magenta))',
+				'game-lime': 'hsl(var(--game-lime))',
+				'game-dark-purple': 'hsl(var(--game-dark-purple))',
+				'game-text': 'hsl(var(--game-text))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))'

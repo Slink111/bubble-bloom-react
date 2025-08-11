@@ -2,14 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Bubble Shooter Game Design System */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Game Color Palette - Vibrant Bubble Colors */
+    --game-purple: 269 91% 67%;
+    --game-cyan: 186 100% 69%;
+    --game-magenta: 330 81% 60%;
+    --game-lime: 84 81% 44%;
+    --game-dark-purple: 277 66% 32%;
+    
+    /* Game Gradients */
+    --gradient-game-bg: linear-gradient(135deg, hsl(var(--game-purple)), hsl(var(--game-dark-purple)));
+    --gradient-bubble-glow: radial-gradient(circle, hsla(var(--game-cyan), 0.3) 0%, transparent 70%);
+    
+    /* Game UI */
+    --game-board-bg: hsla(277, 66%, 20%, 0.9);
+    --game-text: 0 0% 100%;
+    --game-shadow: 0 10px 30px hsla(277, 66%, 10%, 0.5);
+    
+    /* Design System */
+    --background: 277 66% 8%;
+    --foreground: 0 0% 100%;
 
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
