@@ -1,4 +1,4 @@
-/ Game Constants
+// Game Constants
 const BUBBLE_RADIUS = 18;
 const COLORS = ['purple', 'cyan', 'magenta', 'lime', 'orange'];
 const ROWS = 12;
