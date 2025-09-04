@@ -568,8 +568,18 @@ const BubbleShooter = () => {
   const handleDragStart = (clientX: number, clientY: number) => {
     if (projectile || gameOver || !gameStarted) return;
     
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
     setIsDragging(true);
-    setDragStart({ x: clientX, y: clientY });
+    setDragStart({ 
+      x: (clientX - rect.left) * scaleX, 
+      y: (clientY - rect.top) * scaleY 
+    });
   };
 
   const handleDragMove = (clientX: number, clientY: number) => {
@@ -579,21 +589,25 @@ const BubbleShooter = () => {
     if (!canvas) return;
     
     const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
     const shooterX = canvas.width / 2;
     const shooterY = canvas.height - 80;
-    const canvasX = clientX - rect.left;
-    const canvasY = clientY - rect.top;
+    const canvasX = (clientX - rect.left) * scaleX;
+    const canvasY = (clientY - rect.top) * scaleY;
     
     const dx = canvasX - shooterX;
     const dy = canvasY - shooterY;
     
-    // Only allow upward shooting
+    // Only allow upward shooting with mobile-friendly constraints
     if (dy < 0) {
       const angle = Math.atan2(dy, dx);
+      const clampedAngle = Math.max(-Math.PI * 0.9, Math.min(-Math.PI * 0.1, angle));
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const power = Math.min(distance / 100, 1);
+      const power = Math.min(distance / 120, 1);
       
-      setAimAngle(angle);
+      setAimAngle(clampedAngle);
       setAimPower(power);
     }
   };
@@ -633,14 +647,14 @@ const BubbleShooter = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-game-purple via-game-dark-purple to-game-ultra-dark">
-      <div className="bg-game-board-bg/95 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border border-white/10">
+    <div className="flex flex-col items-center justify-center min-h-screen p-2 sm:p-4 bg-gradient-to-br from-game-purple via-game-dark-purple to-game-ultra-dark">
+      <div className="bg-game-board-bg/95 backdrop-blur-sm rounded-3xl p-3 sm:p-6 shadow-2xl border border-white/10 w-full max-w-lg">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-game-cyan via-game-magenta to-game-lime bg-clip-text text-transparent">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6 gap-2 sm:gap-0">
+          <h1 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-game-cyan via-game-magenta to-game-lime bg-clip-text text-transparent">
             Bubble Shooter
           </h1>
-          <div className="flex gap-4 text-game-text font-bold">
+          <div className="flex gap-2 sm:gap-4 text-game-text font-bold text-sm sm:text-base">
             <div className={`${scoreAnimation ? 'animate-score-pop' : ''}`}>
               Score: <span className="text-game-accent">{score}</span>
             </div>
@@ -655,7 +669,11 @@ const BubbleShooter = () => {
           ref={canvasRef}
           width={480}
           height={640}
-          className="rounded-2xl bg-gradient-to-b from-game-dark-purple/30 to-game-ultra-dark/50 shadow-inner touch-none"
+          className="w-full max-w-[480px] h-auto aspect-[3/4] rounded-2xl bg-gradient-to-b from-game-dark-purple/30 to-game-ultra-dark/50 shadow-inner touch-none"
+          style={{ 
+            touchAction: 'none',
+            maxHeight: 'calc(100vh - 200px)'
+          }}
           onMouseDown={(e) => handleDragStart(e.clientX, e.clientY)}
           onMouseMove={(e) => handleDragMove(e.clientX, e.clientY)}
           onMouseUp={handleDragEnd}
