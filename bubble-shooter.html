@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble Shooter Game</title>
+    <meta name="description" content="Mobile-optimized bubble shooter game - Match 3+ bubbles to pop them!">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #8B5CF6, #7C3AED, #6D28D9);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+        
+        .game-container {
+            background: rgba(30, 30, 46, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .title {
+            font-size: clamp(1.5rem, 4vw, 2rem);
+            font-weight: bold;
+            background: linear-gradient(90deg, #06B6D4, #EC4899, #84CC16);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 15px;
+            font-weight: bold;
+            font-size: clamp(0.875rem, 2.5vw, 1rem);
+            color: #E5E7EB;
+        }
+        
+        .score {
+            color: #06B6D4;
+        }
+        
+        .time-warning {
+            color: #EF4444;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .score-animation {
+            animation: scorePop 0.3s ease-out;
+        }
+        
+        @keyframes scorePop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        #gameCanvas {
+            width: 100%;
+            max-width: 480px;
+            height: auto;
+            aspect-ratio: 3/4;
+            border-radius: 16px;
+            background: linear-gradient(180deg, rgba(107, 33, 168, 0.3), rgba(59, 7, 100, 0.5));
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+            touch-action: none;
+            cursor: crosshair;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .btn {
+            background: linear-gradient(90deg, #06B6D4, #EC4899);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(90deg, #F97316, #EC4899);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid rgba(229, 231, 235, 0.3);
+            color: rgba(229, 231, 235, 0.7);
+        }
+        
+        .btn-outline:hover {
+            background: rgba(229, 231, 235, 0.1);
+        }
+        
+        .game-info {
+            color: rgba(229, 231, 235, 0.6);
+            font-size: 14px;
+            margin: 10px 0;
+        }
+        
+        .game-over {
+            color: #E5E7EB;
+            margin-bottom: 20px;
+        }
+        
+        .game-over h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .final-score {
+            font-size: 18px;
+            color: #06B6D4;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 15px;
+                margin: 5px;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .stats {
+                gap: 10px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1 class="title">Bubble Shooter</h1>
+            <div class="stats">
+                <div id="scoreDisplay">Score: <span class="score">0</span></div>
+                <div id="timeDisplay">Time: 3:00</div>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas" width="480" height="640"></canvas>
+        
+        <div class="controls">
+            <div id="startScreen">
+                <button id="startBtn" class="btn">Start Game</button>
+                <p class="game-info">Drag to aim • Release to shoot • Match 3+ bubbles to pop them</p>
+            </div>
+            
+            <div id="gameOverScreen" style="display: none;">
+                <div class="game-over">
+                    <h2 id="gameOverTitle">🎉 You Won!</h2>
+                    <p class="final-score">Final Score: <span id="finalScore">0</span></p>
+                    <p class="game-info">Time: <span id="finalTime">0:00</span></p>
+                </div>
+                <button id="playAgainBtn" class="btn btn-secondary">Play Again</button>
+            </div>
+            
+            <div id="gameScreen" style="display: none;">
+                <p class="game-info" id="aimInfo">Drag to aim and release to shoot</p>
+                <button id="restartBtn" class="btn btn-outline">Restart</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BubbleShooter {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.bubbles = [];
+                this.projectile = null;
+                this.nextColor = 'purple';
+                this.score = 0;
+                this.gameOver = false;
+                this.isDragging = false;
+                this.aimAngle = 0;
+                this.aimPower = 0;
+                this.popAnimations = [];
+                this.gameStarted = false;
+                this.timeLeft = 180;
+                this.dragStart = { x: 0, y: 0 };
+                this.timer = null;
+                this.animationFrame = null;
+                
+                this.BUBBLE_RADIUS = 18;
+                this.COLORS = ['purple', 'cyan', 'magenta', 'lime', 'orange'];
+                this.ROWS = 12;
+                this.COLS = 12;
+                this.BUBBLE_SPACING = this.BUBBLE_RADIUS * 2;
+                
+                this.initializeEvents();
+                this.initializeBubbles();
+                this.setNextColor();
+                this.gameLoop();
+            }
+            
+            getColorData(color) {
+                const colors = {
+                    purple: { light: 'hsl(269, 91%, 77%)', main: 'hsl(269, 91%, 67%)', dark: 'hsl(269, 91%, 47%)', shadow: 'hsl(269, 91%, 67%)' },
+                    cyan: { light: 'hsl(186, 100%, 79%)', main: 'hsl(186, 100%, 69%)', dark: 'hsl(186, 100%, 49%)', shadow: 'hsl(186, 100%, 69%)' },
+                    magenta: { light: 'hsl(330, 81%, 70%)', main: 'hsl(330, 81%, 60%)', dark: 'hsl(330, 81%, 40%)', shadow: 'hsl(330, 81%, 60%)' },
+                    lime: { light: 'hsl(84, 81%, 64%)', main: 'hsl(84, 81%, 54%)', dark: 'hsl(84, 81%, 34%)', shadow: 'hsl(84, 81%, 54%)' },
+                    orange: { light: 'hsl(35, 85%, 70%)', main: 'hsl(35, 85%, 60%)', dark: 'hsl(35, 85%, 40%)', shadow: 'hsl(35, 85%, 60%)' }
+                };
+                return colors[color];
+            }
+            
+            getGridPosition(row, col) {
+                const offsetX = row % 2 === 1 ? this.BUBBLE_SPACING / 2 : 0;
+                return {
+                    x: 40 + offsetX + col * this.BUBBLE_SPACING,
+                    y: 60 + row * (this.BUBBLE_SPACING * 0.87)
+                };
+            }
+            
+            initializeBubbles() {
+                this.bubbles = [];
+                for (let row = 0; row < 6; row++) {
+                    const maxCols = row % 2 === 1 ? this.COLS - 1 : this.COLS;
+                    for (let col = 0; col < Math.min(maxCols, 10); col++) {
+                        const pos = this.getGridPosition(row, col);
+                        if (pos.x < 440) {
+                            this.bubbles.push({
+                                id: `${row}-${col}`,
+                                x: pos.x,
+                                y: pos.y,
+                                color: this.COLORS[Math.floor(Math.random() * this.COLORS.length)],
+                                radius: this.BUBBLE_RADIUS,
+                                row: row,
+                                col: col
+                            });
+                        }
+                    }
+                }
+            }
+            
+            setNextColor() {
+                this.nextColor = this.COLORS[Math.floor(Math.random() * this.COLORS.length)];
+            }
+            
+            findNearestGridPosition(x, y) {
+                let minDistance = Infinity;
+                let bestPosition = { row: 0, col: 0, x: 0, y: 0 };
+                
+                for (let row = 0; row < this.ROWS; row++) {
+                    const maxCols = row % 2 === 1 ? this.COLS - 1 : this.COLS;
+                    for (let col = 0; col < maxCols; col++) {
+                        const pos = this.getGridPosition(row, col);
+                        if (pos.x >= 40 && pos.x <= 440) {
+                            const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                bestPosition = { row, col, x: pos.x, y: pos.y };
+                            }
+                        }
+                    }
+                }
+                return bestPosition;
+            }
+            
+            findConnectedBubbles(targetBubble, bubbleList) {
+                const visited = new Set();
+                const stack = [targetBubble];
+                const connected = [];
+                
+                while (stack.length > 0) {
+                    const current = stack.pop();
+                    if (visited.has(current.id) || current.color !== targetBubble.color) continue;
+                    
+                    visited.add(current.id);
+                    connected.push(current);
+                    
+                    const adjacent = bubbleList.filter(bubble => {
+                        if (visited.has(bubble.id) || bubble.color !== targetBubble.color) return false;
+                        const distance = Math.sqrt((bubble.x - current.x) ** 2 + (bubble.y - current.y) ** 2);
+                        return distance <= this.BUBBLE_SPACING * 1.1;
+                    });
+                    
+                    stack.push(...adjacent);
+                }
+                
+                return connected;
+            }
+            
+            checkCollision(proj, bubble) {
+                const distance = Math.sqrt((proj.x - bubble.x) ** 2 + (proj.y - bubble.y) ** 2);
+                return distance <= proj.radius + bubble.radius - 3;
+            }
+            
+            shootBubble() {
+                if (this.projectile || this.gameOver || !this.gameStarted || this.aimPower < 0.1) return;
+                
+                const startX = this.canvas.width / 2;
+                const startY = this.canvas.height - 80;
+                const speed = Math.min(this.aimPower * 15, 12);
+                const vx = Math.cos(this.aimAngle) * speed;
+                const vy = Math.sin(this.aimAngle) * speed;
+                
+                this.projectile = {
+                    x: startX,
+                    y: startY,
+                    vx: vx,
+                    vy: vy,
+                    color: this.nextColor,
+                    radius: this.BUBBLE_RADIUS
+                };
+                
+                this.setNextColor();
+            }
+            
+            updateGame() {
+                if (!this.projectile) return;
+                
+                const newProjectile = {
+                    ...this.projectile,
+                    x: this.projectile.x + this.projectile.vx,
+                    y: this.projectile.y + this.projectile.vy
+                };
+                
+                // Wall bouncing
+                if (newProjectile.x <= this.BUBBLE_RADIUS || newProjectile.x >= this.canvas.width - this.BUBBLE_RADIUS) {
+                    newProjectile.vx = -newProjectile.vx;
+                    newProjectile.x = Math.max(this.BUBBLE_RADIUS, Math.min(this.canvas.width - this.BUBBLE_RADIUS, newProjectile.x));
+                }
+                
+                // Top boundary
+                if (newProjectile.y <= this.BUBBLE_RADIUS + 20) {
+                    this.addBubbleToGrid(newProjectile);
+                    return;
+                }
+                
+                // Collision with bubbles
+                let collided = false;
+                for (const bubble of this.bubbles) {
+                    if (this.checkCollision(newProjectile, bubble)) {
+                        this.addBubbleToGrid(newProjectile);
+                        collided = true;
+                        break;
+                    }
+                }
+                
+                if (collided) return;
+                
+                // Bottom boundary
+                if (newProjectile.y >= this.canvas.height - this.BUBBLE_RADIUS - 20) {
+                    this.gameOver = true;
+                    this.projectile = null;
+                    this.showGameOver();
+                    return;
+                }
+                
+                this.projectile = newProjectile;
+            }
+            
+            addBubbleToGrid(projectile) {
+                const gridPos = this.findNearestGridPosition(projectile.x, projectile.y);
+                const existingBubble = this.bubbles.find(b => 
+                    Math.abs(b.x - gridPos.x) < 10 && Math.abs(b.y - gridPos.y) < 10
+                );
+                
+                if (!existingBubble) {
+                    const newBubble = {
+                        id: `proj-${Date.now()}`,
+                        x: gridPos.x,
+                        y: gridPos.y,
+                        color: projectile.color,
+                        radius: this.BUBBLE_RADIUS,
+                        row: gridPos.row,
+                        col: gridPos.col
+                    };
+                    
+                    const newBubbles = [...this.bubbles, newBubble];
+                    const connectedBubbles = this.findConnectedBubbles(newBubble, newBubbles);
+                    
+                    if (connectedBubbles.length >= 3) {
+                        const newAnimations = connectedBubbles.map(bubble => ({
+                            x: bubble.x,
+                            y: bubble.y,
+                            frame: 0,
+                            color: bubble.color
+                        }));
+                        this.popAnimations.push(...newAnimations);
+                        
+                        const remainingBubbles = newBubbles.filter(b => 
+                            !connectedBubbles.some(cb => cb.id === b.id)
+                        );
+                        this.bubbles = remainingBubbles;
+                        
+                        const points = connectedBubbles.length * 10 + (connectedBubbles.length > 3 ? (connectedBubbles.length - 3) * 5 : 0);
+                        this.addScore(points);
+                        
+                        if (remainingBubbles.length === 0) {
+                            this.gameOver = true;
+                            this.showGameOver();
+                        }
+                    } else {
+                        this.bubbles = newBubbles;
+                    }
+                }
+                
+                this.projectile = null;
+            }
+            
+            addScore(points) {
+                this.score += points;
+                this.updateScoreDisplay(true);
+            }
+            
+            updateScoreDisplay(animate = false) {
+                const scoreElement = document.querySelector('#scoreDisplay .score');
+                scoreElement.textContent = this.score;
+                if (animate) {
+                    scoreElement.parentElement.classList.add('score-animation');
+                    setTimeout(() => scoreElement.parentElement.classList.remove('score-animation'), 300);
+                }
+            }
+            
+            updateAnimations() {
+                this.popAnimations = this.popAnimations.map(anim => ({ ...anim, frame: anim.frame + 1 }))
+                    .filter(anim => anim.frame < 20);
+            }
+            
+            drawGame() {
+                // Clear with gradient background
+                const bgGradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+                bgGradient.addColorStop(0, 'hsl(277, 66%, 20%)');
+                bgGradient.addColorStop(0.5, 'hsl(277, 66%, 15%)');
+                bgGradient.addColorStop(1, 'hsl(277, 66%, 8%)');
+                this.ctx.fillStyle = bgGradient;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw laser sight
+                if (this.isDragging && this.gameStarted && !this.projectile && !this.gameOver) {
+                    this.drawLaserSight();
+                }
+                
+                // Draw bubbles
+                this.bubbles.forEach(bubble => this.drawBubble(bubble));
+                
+                // Draw projectile
+                if (this.projectile) {
+                    this.drawBubble(this.projectile);
+                }
+                
+                // Draw pop animations
+                this.popAnimations.forEach(anim => this.drawPopAnimation(anim));
+                
+                // Draw shooter
+                this.drawShooter();
+            }
+            
+            drawLaserSight() {
+                const shooterX = this.canvas.width / 2;
+                const shooterY = this.canvas.height - 80;
+                const laserLength = 300;
+                const endX = shooterX + Math.cos(this.aimAngle) * laserLength;
+                const endY = shooterY + Math.sin(this.aimAngle) * laserLength;
+                
+                this.ctx.shadowColor = 'hsl(0, 100%, 60%)';
+                this.ctx.shadowBlur = 15;
+                this.ctx.strokeStyle = `hsla(0, 100%, ${60 + this.aimPower * 20}%, ${0.7 + this.aimPower * 0.3})`;
+                this.ctx.lineWidth = 3 + this.aimPower * 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(shooterX, shooterY);
+                this.ctx.lineTo(endX, endY);
+                this.ctx.stroke();
+                
+                // Laser dots
+                this.ctx.shadowBlur = 8;
+                for (let i = 0; i < 10; i++) {
+                    const t = i / 10;
+                    const dotX = shooterX + (endX - shooterX) * t;
+                    const dotY = shooterY + (endY - shooterY) * t;
+                    
+                    this.ctx.fillStyle = `hsla(0, 100%, 70%, ${0.8 - t * 0.5})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(dotX, dotY, 2 + this.aimPower, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+                this.ctx.shadowBlur = 0;
+            }
+            
+            drawBubble(bubble) {
+                const colors = this.getColorData(bubble.color);
+                
+                this.ctx.shadowColor = colors.shadow;
+                this.ctx.shadowBlur = 12;
+                
+                this.ctx.beginPath();
+                this.ctx.arc(bubble.x, bubble.y, bubble.radius, 0, Math.PI * 2);
+                
+                const gradient = this.ctx.createRadialGradient(
+                    bubble.x - 6, bubble.y - 6, 0,
+                    bubble.x, bubble.y, bubble.radius
+                );
+                gradient.addColorStop(0, colors.light);
+                gradient.addColorStop(0.7, colors.main);
+                gradient.addColorStop(1, colors.dark);
+                
+                this.ctx.fillStyle = gradient;
+                this.ctx.fill();
+                
+                // Highlight
+                this.ctx.shadowBlur = 0;
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                this.ctx.beginPath();
+                this.ctx.arc(bubble.x - 5, bubble.y - 5, bubble.radius * 0.35, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            
+            drawPopAnimation(anim) {
+                const progress = anim.frame / 20;
+                const radius = this.BUBBLE_RADIUS * (1 + progress * 1.5);
+                const alpha = 1 - progress;
+                const colors = this.getColorData(anim.color);
+                
+                this.ctx.globalAlpha = alpha;
+                this.ctx.strokeStyle = colors.light;
+                this.ctx.lineWidth = 4;
+                this.ctx.beginPath();
+                this.ctx.arc(anim.x, anim.y, radius, 0, Math.PI * 2);
+                this.ctx.stroke();
+                
+                this.ctx.strokeStyle = colors.main;
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.arc(anim.x, anim.y, radius * 0.6, 0, Math.PI * 2);
+                this.ctx.stroke();
+                
+                this.ctx.globalAlpha = 1;
+            }
+            
+            drawShooter() {
+                const shooterX = this.canvas.width / 2;
+                const shooterY = this.canvas.height - 80;
+                const colors = this.getColorData(this.nextColor);
+                
+                // Power indicator
+                if (this.isDragging && this.aimPower > 0) {
+                    this.ctx.strokeStyle = `hsla(0, 100%, 60%, ${this.aimPower})`;
+                    this.ctx.lineWidth = 6;
+                    this.ctx.beginPath();
+                    this.ctx.arc(shooterX, shooterY, this.BUBBLE_RADIUS + 8 + this.aimPower * 10, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                }
+                
+                this.ctx.shadowColor = colors.shadow;
+                this.ctx.shadowBlur = 15;
+                
+                this.ctx.beginPath();
+                this.ctx.arc(shooterX, shooterY, this.BUBBLE_RADIUS + 2, 0, Math.PI * 2);
+                
+                const gradient = this.ctx.createRadialGradient(
+                    shooterX - 6, shooterY - 6, 0,
+                    shooterX, shooterY, this.BUBBLE_RADIUS + 2
+                );
+                gradient.addColorStop(0, colors.light);
+                gradient.addColorStop(0.7, colors.main);
+                gradient.addColorStop(1, colors.dark);
+                
+                this.ctx.fillStyle = gradient;
+                this.ctx.fill();
+                
+                this.ctx.shadowBlur = 0;
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                this.ctx.lineWidth = 3;
+                this.ctx.stroke();
+                
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                this.ctx.beginPath();
+                this.ctx.arc(shooterX - 5, shooterY - 5, (this.BUBBLE_RADIUS + 2) * 0.35, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            
+            gameLoop() {
+                this.updateGame();
+                this.updateAnimations();
+                this.drawGame();
+                this.animationFrame = requestAnimationFrame(() => this.gameLoop());
+            }
+            
+            startGame() {
+                this.gameStarted = true;
+                this.timeLeft = 180;
+                this.showGameScreen();
+                
+                this.timer = setInterval(() => {
+                    this.timeLeft--;
+                    this.updateTimeDisplay();
+                    if (this.timeLeft <= 0) {
+                        this.gameOver = true;
+                        this.showGameOver();
+                    }
+                }, 1000);
+            }
+            
+            resetGame() {
+                if (this.timer) clearInterval(this.timer);
+                this.gameOver = false;
+                this.gameStarted = false;
+                this.score = 0;
+                this.projectile = null;
+                this.popAnimations = [];
+                this.isDragging = false;
+                this.aimPower = 0;
+                this.timeLeft = 180;
+                this.initializeBubbles();
+                this.setNextColor();
+                this.updateScoreDisplay();
+                this.updateTimeDisplay();
+                this.showStartScreen();
+            }
+            
+            showStartScreen() {
+                document.getElementById('startScreen').style.display = 'block';
+                document.getElementById('gameOverScreen').style.display = 'none';
+                document.getElementById('gameScreen').style.display = 'none';
+            }
+            
+            showGameScreen() {
+                document.getElementById('startScreen').style.display = 'none';
+                document.getElementById('gameOverScreen').style.display = 'none';
+                document.getElementById('gameScreen').style.display = 'block';
+            }
+            
+            showGameOver() {
+                if (this.timer) clearInterval(this.timer);
+                
+                const title = document.getElementById('gameOverTitle');
+                if (this.bubbles.length === 0) {
+                    title.textContent = '🎉 You Won!';
+                } else if (this.timeLeft === 0) {
+                    title.textContent = '⏰ Time\'s Up!';
+                } else {
+                    title.textContent = '💥 Game Over!';
+                }
+                
+                document.getElementById('finalScore').textContent = this.score;
+                document.getElementById('finalTime').textContent = this.formatTime(180 - this.timeLeft);
+                
+                document.getElementById('startScreen').style.display = 'none';
+                document.getElementById('gameOverScreen').style.display = 'block';
+                document.getElementById('gameScreen').style.display = 'none';
+            }
+            
+            updateTimeDisplay() {
+                const timeDisplay = document.getElementById('timeDisplay');
+                timeDisplay.textContent = `Time: ${this.formatTime(this.timeLeft)}`;
+                if (this.timeLeft <= 30) {
+                    timeDisplay.classList.add('time-warning');
+                } else {
+                    timeDisplay.classList.remove('time-warning');
+                }
+            }
+            
+            formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+            
+            handleDragStart(clientX, clientY) {
+                if (this.projectile || this.gameOver || !this.gameStarted) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+                
+                this.isDragging = true;
+                this.dragStart = {
+                    x: (clientX - rect.left) * scaleX,
+                    y: (clientY - rect.top) * scaleY
+                };
+            }
+            
+            handleDragMove(clientX, clientY) {
+                if (!this.isDragging || !this.gameStarted) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+                
+                const shooterX = this.canvas.width / 2;
+                const shooterY = this.canvas.height - 80;
+                const canvasX = (clientX - rect.left) * scaleX;
+                const canvasY = (clientY - rect.top) * scaleY;
+                
+                const dx = canvasX - shooterX;
+                const dy = canvasY - shooterY;
+                
+                if (dy < 0) {
+                    const angle = Math.atan2(dy, dx);
+                    const clampedAngle = Math.max(-Math.PI * 0.9, Math.min(-Math.PI * 0.1, angle));
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const power = Math.min(distance / 120, 1);
+                    
+                    this.aimAngle = clampedAngle;
+                    this.aimPower = power;
+                    
+                    document.getElementById('aimInfo').textContent = `Power: ${Math.round(power * 100)}%`;
+                }
+            }
+            
+            handleDragEnd() {
+                if (this.isDragging && this.gameStarted) {
+                    this.shootBubble();
+                }
+                this.isDragging = false;
+                this.aimPower = 0;
+                document.getElementById('aimInfo').textContent = 'Drag to aim and release to shoot';
+            }
+            
+            initializeEvents() {
+                // Mouse events
+                this.canvas.addEventListener('mousedown', (e) => {
+                    this.handleDragStart(e.clientX, e.clientY);
+                });
+                
+                this.canvas.addEventListener('mousemove', (e) => {
+                    this.handleDragMove(e.clientX, e.clientY);
+                });
+                
+                this.canvas.addEventListener('mouseup', () => {
+                    this.handleDragEnd();
+                });
+                
+                // Touch events
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    if (touch) this.handleDragStart(touch.clientX, touch.clientY);
+                });
+                
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    if (touch) this.handleDragMove(touch.clientX, touch.clientY);
+                });
+                
+                this.canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.handleDragEnd();
+                });
+                
+                // Button events
+                document.getElementById('startBtn').addEventListener('click', () => {
+                    this.startGame();
+                });
+                
+                document.getElementById('playAgainBtn').addEventListener('click', () => {
+                    this.resetGame();
+                });
+                
+                document.getElementById('restartBtn').addEventListener('click', () => {
+                    this.resetGame();
+                });
+            }
+        }
+        
+        // Initialize game when page loads
+        window.addEventListener('load', () => {
+            new BubbleShooter();
+        });
+    </script>
+</body>
+</html>
