@@ -624,6 +624,15 @@ const BubbleShooter = () => {
     initializeBubbles();
     setNextColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
     
+    // Initialize ads
+    if (typeof window !== 'undefined' && (window as any).adsbygoogle) {
+      try {
+        ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+      } catch (e) {
+        console.error('AdSense error:', e);
+      }
+    }
+    
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -663,7 +672,26 @@ const BubbleShooter = () => {
             </div>
           </div>
         </div>
+
+        {/* Top Banner Ad */}
+        <div className="mb-4 flex justify-center">
+          <ins className="adsbygoogle"
+               style={{display: 'block'}}
+               data-ad-client="ca-pub-1472432193229074"
+               data-ad-slot="1234567890"
+               data-ad-format="auto"
+               data-full-width-responsive="true"></ins>
+        </div>
         
+        {/* Sidebar Ad */}
+        <div className="hidden lg:block absolute left-4 top-1/2 transform -translate-y-1/2">
+          <ins className="adsbygoogle"
+               style={{display: 'block', width: '160px', height: '600px'}}
+               data-ad-client="ca-pub-1472432193229074"
+               data-ad-slot="2345678901"
+               data-ad-format="auto"></ins>
+        </div>
+
         {/* Game Canvas */}
         <canvas
           ref={canvasRef}
@@ -718,6 +746,31 @@ const BubbleShooter = () => {
                 <p className="text-lg">Final Score: <span className="text-game-accent font-bold">{score}</span></p>
                 <p className="text-sm text-game-text-muted">Time: {formatTime(180 - timeLeft)}</p>
               </div>
+              
+              {/* Full Screen Game Over Ad */}
+              <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full text-center">
+                  <h3 className="text-xl font-bold mb-4 text-gray-800">Game Complete!</h3>
+                  <ins className="adsbygoogle"
+                       style={{display: 'block'}}
+                       data-ad-client="ca-pub-1472432193229074"
+                       data-ad-slot="3456789012"
+                       data-ad-format="auto"
+                       data-full-width-responsive="true"></ins>
+                  <Button 
+                    onClick={() => {
+                      resetGame();
+                      // Close the ad overlay
+                      const adOverlay = document.querySelector('.fixed.inset-0');
+                      if (adOverlay) adOverlay.remove();
+                    }}
+                    className="mt-4 bg-gradient-to-r from-game-orange to-game-magenta hover:from-game-orange-dark hover:to-game-magenta-dark text-white font-bold px-8 py-3 rounded-xl shadow-lg transform transition hover:scale-105"
+                  >
+                    Play Again
+                  </Button>
+                </div>
+              </div>
+              
               <Button 
                 onClick={resetGame}
                 className="bg-gradient-to-r from-game-orange to-game-magenta hover:from-game-orange-dark hover:to-game-magenta-dark text-white font-bold px-8 py-3 rounded-xl shadow-lg transform transition hover:scale-105"
